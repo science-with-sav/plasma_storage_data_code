@@ -1,30 +1,321 @@
 ---
-title: "data wrangling"
+title: "plasma storage project - data wrangling"
 author: "Savannah Weaver"
-date: "2023-08-23"
-output: html_document
+date: "2023"
+output: 
+  rmdformats::html_clean:
+    highlight: tango
+    thumbnails: FALSE
+    toc: TRUE
+    toc_depth: 3
 ---
 
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+
+# Packages
+
+```{r setup, include = TRUE}
+`%nin%` = Negate(`%in%`)
+if (!require("tidyverse")) install.packages("tidyverse")
+library("tidyverse") # workflow and plots
+if (!require("rmdformats")) install.packages("rmdformats")
+library("rmdformats") # clean html R markdown format
 ```
 
-## R Markdown
 
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+# Background and Goals
 
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+Blood was drawn from several *Crotalus oreganus* in May 2023, the blood plasma was pooled, then we ran an experiment to test the effect of different plasma storage methods on plasma osmolality. Plasma osmolality was measured on a VAPRO vapor pressure osmometer in 3 replicates. In this R script, I check the distribution of replicates, omit outliers, and average remaining replicates.
 
-```{r cars}
-summary(cars)
+
+# Load Data
+
+```{r load data}
+# load data
+osml_reps_wide <- read.csv("./data/plasma_osmolality_raw.csv",
+                na.strings = c("","NA"),
+                header = TRUE
+                )
+
+# put into tidy format and format new data cols
+osml_reps <- gather(osml_reps_wide, 
+                    key = "replicate_no", 
+                    value = "osmolality_mmol_kg", 
+                    4:6) %>% 
+  mutate(
+    sample_ID = as.factor(sample_ID),
+    replicate_no = as.factor(replicate_no),
+    osmolality_mmol_kg = as.numeric(osmolality_mmol_kg)
+  )
+
+# check
+summary(osml_reps_wide)
+summary(osml_reps)
 ```
 
-## Including Plots
 
-You can also embed plots, for example:
 
-```{r pressure, echo=FALSE}
-plot(pressure)
+
+
+
+
+# Replicates
+
+Now, I will try to identify outliers within the replicate set for a given individual on a given date. There must be at least 3 replicates to do this.
+
+
+## Number of Replicates
+
+So first, I need to check whether any samples did not get run in triplicate. 
+
+```{r}
+osml_reps %>% 
+  dplyr::filter(complete.cases(osmolality_mmol_kg)) %>% 
+  group_by(sample_ID) %>% 
+  count() %>% 
+  arrange(n) %>% 
+  head()
 ```
 
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+
+Check the values of sample push-RM-2:
+
+```{r}
+osml_reps %>% 
+  dplyr::filter(sample_ID == "push-RM-2")
+```
+
+The values are very close together, so we won't worry about it.
+
+We don't need to remove/save it for later while doing the next steps - we just know we would not be able to find any outliers in a 2-rep group.
+
+## Assess Variation of Reps Within Samples
+
+We want the Coefficient of Variation (CV) among technical replicates of a given sample to be small. We need to calculate it to qualify how likely there are to be outliers.
+
+```{r calculate CVs}
+CVs <- osml_reps %>%
+  group_by(sample_ID) %>%
+  summarise(mean = mean(osmolality_mmol_kg),
+            SD = sd(osmolality_mmol_kg),
+            CV = (SD/mean) *100,
+            min = min(osmolality_mmol_kg),
+            max = max(osmolality_mmol_kg),
+            osml_range = max - min
+            )
+summary(CVs)
+hist(CVs$CV)
+hist(CVs$osml_range) 
+hist(CVs$SD) 
+```
+
+
+All of the ranges >20 mmosm are not good, But only one CV> 10, so yay!
+
+
+
+
+
+## Find Outliers
+
+
+```{r}
+outliers_found <- osml_reps %>%
+  group_by(sample_ID) %>%
+  summarise(outs = boxplot.stats(osmolality_mmol_kg)$out) %>%
+  mutate(outlier = "Yes")
+```
+
+The good news is that there were no outliers for any tech rep groups, as assessed by IQR!
+
+Double check the two rep groups with the highest CVs and super high ranges, both of which are outside the distribution of CV, range, and SD for all tech rep sets:
+
+
+```{r find high CV rep group}
+CVs %>% 
+  dplyr::filter(CV > 5)
+
+osml_reps %>% 
+  dplyr::filter(sample_ID == "push-RM-1")
+
+osml_reps %>% 
+  dplyr::filter(sample_ID == "push-RT-3")
+```
+
+
+What is the standard deviation of these two tech rep groups with versus without the one rep that's very different?
+
+```{r}
+sd(c(408, 333, 343)) # sd all 3
+sd(c(333, 343)) # sd only two
+40/7 # how many x geater
+(408-343)/7.1 # how many SDs away from others in the set
+
+sd(c(320, 332, 362))
+sd(c(320, 332))
+21/8
+(362-332)/8.5
+```
+
+The unofficial "outliers" increase SD by 2.6-5.7x! And, without them, their SDs would fit into the overall distribution of SDs.
+
+
+In both cases, I think the one replicate very different from the others should be removed. 
+
+
+
+## Remove Outliers
+
+This code chunk removes two technical replicate values. You can know it does so by removing (and replacing) the "!" within each filter, and by comparing the number of rows for 'osml_reps' versus 'outliers_removed'.
+
+```{r}
+outliers_removed <- osml_reps %>%
+  group_by(sample_ID) %>%
+  dplyr::filter(!(sample_ID == "push-RT-3" & osmolality_mmol_kg == 362)) %>% 
+  dplyr::filter(!(sample_ID == "push-RM-1" & osmolality_mmol_kg == 408))
+```
+
+
+
+
+
+
+
+## Average Remaining Replicates
+
+Now that the two unofficial outliers have been removed from the technical replicates, we will average the technical replicates for each sample.
+
+```{r calculate means}
+osml_means <- outliers_removed %>%
+  group_by(sample_ID) %>%
+  summarise(osmolality_mmol_kg_mean = mean(osmolality_mmol_kg, na.rm = TRUE))
+
+summary(osml_means)
+```
+
+
+
+
+
+
+# Samples
+
+
+Before we go on to analysis, let's check the distribution of sample values (the averaged technical replicates).
+
+```{r}
+hist(osml_means$osmolality_mmol_kg_mean)
+```
+
+
+Only one sample was >400. Investigate:
+
+```{r}
+osml_means %>% 
+  dplyr::filter(osmolality_mmol_kg_mean > 400)
+osml_reps %>% 
+  dplyr::filter(sample_ID == "screw-RM-1")
+osml_means %>% 
+  dplyr::filter(substr(sample_ID, 1, 8) == "screw-RM")
+```
+
+
+check SD difference:
+
+```{r}
+sd(c(382, 386, 386, 371, 429))
+sd(c(382, 386, 386, 371))
+(429-386)/7.1 # how many SDs away from others in the set
+```
+
+
+It's so far outside the distribution of the samples in its set, and outside the distribution of samples overall, it should be removed.
+
+
+```{r}
+osml_means_clean <- osml_means %>% 
+  dplyr::filter(osmolality_mmol_kg_mean < 400)
+```
+
+
+
+
+
+
+
+
+
+
+# Export
+
+First, format some labeling.
+
+```{r}
+save <- osml_means_clean %>% 
+  dplyr::filter(substr(sample_ID, 1, 1) != "0")
+fix <- osml_means_clean %>% 
+  dplyr::filter(substr(sample_ID, 1, 1) == "0") %>% 
+  mutate(sample_ID = paste("push", sample_ID, sep = "-"))
+
+osml_means_labeled <- fix %>% 
+  rbind(save) %>% 
+  separate(sample_ID, into = c("tube", "storage", "sample_no"), sep = "-") %>% 
+  mutate(tube = factor(tube),
+         storage = factor(storage),
+         sample_no = factor(sample_no))
+
+summary(osml_means_labeled)
+unique(osml_means_labeled$storage)
+```
+
+
+The storage codes are as follows:
+
+temperature:
+-   R = refridgerator (3-5C)
+-   F = freezer (-18C)
+
+time:
+-   T = 48 hours *we previously planned on 24h, but the osmometer decided otherwise*
+-   V = 72-86 hours
+-   W = 1 week
+-   M = 1 month
+
+```{r}
+osml_means_pretty <- osml_means_labeled %>% 
+  mutate(Temperature = case_when(substr(storage, 1, 1) == "R" ~ "Refridgerator",
+                                 substr(storage, 1, 1) == "F" ~ "Freezer",
+                                 storage == "0" ~ "None"),
+         Days = case_when(storage == "0" ~ "0",
+                          substr(storage, 2, 2) == "T" ~ "2",
+                          substr(storage, 2, 2) == "V" ~ "3-4",
+                          substr(storage, 2, 2) == "W" ~ "7",
+                          substr(storage, 2, 2) == "M" ~ "28-29")) %>% 
+  mutate(Temperature = factor(Temperature,
+                              levels = c("Refridgerator", "Freezer", "None")),
+         Days = factor(Days,
+                       levels = c("0", "2", "3-4", "7", "28-29")
+                       ))
+summary(osml_means_pretty)
+```
+
+
+
+
+Then export the df to be used in a different Rmd for stats and figures:
+
+```{r export cleaned}
+write_rds(osml_means_clean, "./data/osml_means_clean.RDS")
+```
+
+
+
+# Reporting
+
+Two technical replicates and one sample were removed because they were each >3 SDs away from the rest of the distribution. 
+
+
+
+
+
+
+
