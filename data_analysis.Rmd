@@ -123,7 +123,7 @@ lm_arranged <- lm(data = together, osmolality_mmol_kg_mean ~ Temperature*Days)
 Now, get the marginal means and pairwise differences between each sample group:
 
 ```{r}
-data.frame(emmeans(lm_arranged, pairwise ~ Temperature | Days)$emmean)
+emmeans <- data.frame(emmeans(lm_arranged, pairwise ~ Temperature | Days)$emmean) 
 
 temp_diffs <- data.frame(emmeans(lm_arranged, pairwise ~ Temperature | Days)$contrasts)
 temp_diffs
@@ -135,6 +135,22 @@ time_diffs
 
 
 SE **does** typically vary... interesting...
+
+
+prep emmeans results for plotting...
+
+```{r}
+to_label <- emmeans %>% 
+  dplyr::filter(Days == "0") %>% 
+  # pick one to keep, they are the same
+  dplyr::filter(Temperature == "Refridgerator") %>% 
+  mutate(Temperature = "None")
+
+all_good <- emmeans %>% 
+  dplyr::filter(Days != "0") %>% 
+  rbind(to_label)
+```
+
 
 
 ## Variation Among Samples of the Same Group
@@ -166,7 +182,19 @@ Can I put t-test results into the same df as the change values I calculate?!
 ## Pretty Stuff
 
 ```{r}
-theme_set(theme_classic())
+theme_set(theme_classic() +
+            theme(text = element_text(color = "black", 
+                                               family = "sans", 
+                                               size = 12),
+                           axis.text = element_text(color = "black", 
+                                                    family = "sans", 
+                                                    size = 8),
+                           legend.text = element_text(color = "black", 
+                                                      family = "sans", 
+                                                      size = 8),
+                           legend.text.align = 0,
+                           legend.position = "bottom"
+                           ))
 ```
 
 
@@ -176,15 +204,56 @@ theme_set(theme_classic())
 
 ```{r}
 ggplot() +
-  geom_point(data = dat_push,
+  geom_jitter(data = dat_push,
              aes(x = Days,
                  y = osmolality_mmol_kg_mean,
+                 color = Temperature,
+                 shape = Temperature),
+             position = position_jitterdodge(jitter.height = 0, 
+                                             jitter.width = 0.7,
+                                             dodge.width = 0.8),
+             alpha = 0.5,
+             size = 2) +
+  geom_point(data = all_good,
+             aes(x = Days,
+                 y = emmean,
+                 shape = Temperature,
+                 color = Temperature,
+                 ),
+             position = position_dodge(width = 0.8),
+             alpha = 1,
+             size = 3) +
+  geom_errorbar(data = all_good,
+                aes(x = Days,
+                    y = emmean, 
+                    ymin = lower.CL,
+                    ymax = upper.CL,
                  color = Temperature),
-             position = position_dodge(width = 0.5))
+             position = position_dodge(width = 0.8),
+                width = .2) +
+  #annotate(geom = "text", x = 2, y = 19, label = "A", size = 3) +
+  scale_color_manual(name = NULL, values = c("green", "blue", "gray")) +
+  scale_shape_manual(name = NULL, values = c(15, 16, 17)) +
+  scale_y_continuous(limits = c(310, 360), 
+                     name = bquote('Osmolality (mmol '*kg^-1*')')) -> osml_values_plot
+osml_values_plot
 ```
 
 
+^ I should put none first in the legend
 
+## Export
+
+```{r}
+ggsave(filename = "storage_effects.pdf",
+       plot = osml_values_plot,
+       path = "./results",
+       device = "pdf",
+       dpi = 600,
+       units = "mm",
+       width = 160, height = 100
+       )
+```
 
 
 
