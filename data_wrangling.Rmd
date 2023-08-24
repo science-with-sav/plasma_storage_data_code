@@ -14,7 +14,6 @@ output:
 # Packages
 
 ```{r setup, include = TRUE}
-`%nin%` = Negate(`%in%`)
 if (!require("tidyverse")) install.packages("tidyverse")
 library("tidyverse") # workflow and plots
 if (!require("rmdformats")) install.packages("rmdformats")
@@ -304,7 +303,7 @@ summary(osml_means_pretty)
 Then export the df to be used in a different Rmd for stats and figures:
 
 ```{r export cleaned}
-write_rds(osml_means_clean, "./data/osml_means_clean.RDS")
+write_rds(osml_means_pretty, "./data/osml_means_clean.RDS")
 ```
 
 
