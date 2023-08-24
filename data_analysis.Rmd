@@ -1,0 +1,208 @@
+---
+title: "plasma storage project - data analysis"
+author: "Savannah Weaver"
+date: "2023"
+output: 
+  rmdformats::html_clean:
+    highlight: tango
+    thumbnails: FALSE
+    toc: TRUE
+    toc_depth: 3
+---
+
+
+# Packages
+
+```{r setup, include = TRUE}
+if (!require("tidyverse")) install.packages("tidyverse")
+library("tidyverse") # workflow and plots
+if (!require("rmdformats")) install.packages("rmdformats")
+library("rmdformats") # clean html R markdown format
+if (!require("emmeans")) install.packages("emmeans")
+library("emmeans") # marginal means
+```
+
+
+
+# Background and Goals
+
+We will take our cleaned-up df from the wrangling Rmd, and make some figures and run some statistics to determine whether storage temperature and time affect the plasma osmolality of blood plasma samples. 
+
+
+
+
+
+# Load Data
+
+```{r}
+dat <- read_rds("./data/osml_means_clean.RDS") %>% 
+  mutate(Temp_Time = as.factor(paste(Temperature, Days, sep = " - ")))
+```
+
+
+Subset to only be push cap, because the screw cap storage was not great. :(
+
+```{r}
+dat_push <- dat %>% 
+  dplyr::filter(tube == "push")
+
+summary(dat_push)
+```
+
+
+
+
+
+
+
+
+
+# Statistics
+
+
+## Marginal Means
+
+Get the average osmolality for each time point/ temperature, and the pairwise statistical differences. 
+
+check the lm assumptions of the 
+
+
+
+### lm
+
+Use this lm to determine whether the effects of temperature, time, or their interaction are statistically significant.
+
+```{r}
+lm_interaction <- lm(data = dat_push, osmolality_mmol_kg_mean ~ Temperature*Days)
+
+# is the interaction helpful?
+lm_single <- lm(data = dat_push, osmolality_mmol_kg_mean ~ Temperature + Days)
+
+# compare
+anova(lm_interaction, lm_single)
+anova(lm_interaction)
+anova(lm_single)
+```
+
+The temperature that plasma is stored at and the number of days it is stored *does* affect osmolality values, but the interaction is not significant.
+
+
+
+### data wrangling
+
+```{r}
+remove <- dat_push %>% 
+  dplyr::filter(Days != "0")
+to_fix <- dat_push %>% 
+  dplyr::filter(Days == "0")
+fridge <- to_fix %>% 
+  mutate(Temperature = "Refridgerator")
+freezer <- to_fix %>% 
+  mutate(Temperature = "Freezer")
+together <- remove %>% 
+  rbind(fridge) %>% 
+  rbind(freezer)
+```
+
+
+
+
+### lm
+
+Now, run a different lm version, with temperature and days as a single variable, to make the pairwise comparison easier. **I could not figure out how to run this otherwise**
+
+```{r}
+lm_arranged <- lm(data = together, osmolality_mmol_kg_mean ~ Temperature*Days)
+```
+
+
+
+
+### emmeans
+
+Now, get the marginal means and pairwise differences between each sample group:
+
+```{r}
+data.frame(emmeans(lm_arranged, pairwise ~ Temperature | Days)$emmean)
+
+temp_diffs <- data.frame(emmeans(lm_arranged, pairwise ~ Temperature | Days)$contrasts)
+temp_diffs
+
+time_diffs <- data.frame(emmeans(lm_arranged, pairwise ~ Days | Temperature)$contrasts) %>% 
+  dplyr::filter(substr(contrast, 1, 1) == "0")
+time_diffs
+```
+
+
+SE **does** typically vary... interesting...
+
+
+## Variation Among Samples of the Same Group
+
+Quantify the difference in spread for samples of the same "treatment" group.
+
+```{r}
+
+```
+
+
+
+
+## Change
+
+**I actually think this will be redundant :(**
+What was the change for each time point/ temperature, and was it statistically different from zero?
+
+Can I put t-test results into the same df as the change values I calculate?!
+
+
+
+
+
+
+# Figure
+
+
+## Pretty Stuff
+
+```{r}
+theme_set(theme_classic())
+```
+
+
+
+## Means 
+
+
+```{r}
+ggplot() +
+  geom_point(data = dat_push,
+             aes(x = Days,
+                 y = osmolality_mmol_kg_mean,
+                 color = Temperature),
+             position = position_dodge(width = 0.5))
+```
+
+
+
+
+
+
+
+
+## Change 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
