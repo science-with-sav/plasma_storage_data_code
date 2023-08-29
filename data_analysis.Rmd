@@ -188,7 +188,7 @@ all_diffs <- time_diffs_pre %>%
   rbind(temp_diffs_pre) %>% 
   mutate(estimate = round(estimate, 2),
          SE = round(SE, 2),
-         t_df = paste(t.ratio = round(t.ratio, 2), "(", df, ")"),
+         t_df = paste(t.ratio = round(t.ratio, 2), " (", df, ")", sep = ""),
          p.value = round(p.value, 4)) %>% 
   dplyr::select(Constant, Comparison, estimate, SE, t_df, p_value = p.value)
 
