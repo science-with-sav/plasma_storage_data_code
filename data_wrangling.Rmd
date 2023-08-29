@@ -281,7 +281,7 @@ time:
 
 ```{r}
 osml_means_pretty <- osml_means_labeled %>% 
-  mutate(Temperature = case_when(substr(storage, 1, 1) == "R" ~ "Refridgerator",
+  mutate(Temperature = case_when(substr(storage, 1, 1) == "R" ~ "Refrigerator",
                                  substr(storage, 1, 1) == "F" ~ "Freezer",
                                  storage == "0" ~ "None"),
          Days = case_when(storage == "0" ~ "0",
@@ -290,7 +290,7 @@ osml_means_pretty <- osml_means_labeled %>%
                           substr(storage, 2, 2) == "W" ~ "7",
                           substr(storage, 2, 2) == "M" ~ "28-29")) %>% 
   mutate(Temperature = factor(Temperature,
-                              levels = c("Refridgerator", "Freezer", "None")),
+                              levels = c("None", "Refrigerator", "Freezer")),
          Days = factor(Days,
                        levels = c("0", "2", "3-4", "7", "28-29")
                        ))

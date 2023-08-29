@@ -20,6 +20,8 @@ if (!require("rmdformats")) install.packages("rmdformats")
 library("rmdformats") # clean html R markdown format
 if (!require("emmeans")) install.packages("emmeans")
 library("emmeans") # marginal means
+if (!require("RColorBrewer")) install.packages("RColorBrewer")
+library("RColorBrewer") # pretty colors
 ```
 
 
@@ -35,8 +37,7 @@ We will take our cleaned-up df from the wrangling Rmd, and make some figures and
 # Load Data
 
 ```{r}
-dat <- read_rds("./data/osml_means_clean.RDS") %>% 
-  mutate(Temp_Time = as.factor(paste(Temperature, Days, sep = " - ")))
+dat <- read_rds("./data/osml_means_clean.RDS")
 ```
 
 
@@ -49,7 +50,13 @@ dat_push <- dat %>%
 summary(dat_push)
 ```
 
+Another funky thing is that for the time=0 samples, the tubes technically were not stored in the fridge or freezer. But, coding it as something different from the other samples makes it difficult (impossible?) to do any statistical comparisons across time. So, I leave the temp as "none" for figures, but for stats, I code those samples as both "Refridgerator" and "Freezer", duplicating the time=0 points. This is the best way I could think of to achieve reasonable statistics. 
 
+Alternatives that I thought of, with their downsides:
+
+- Code the temp for time zero pts as *either* fridge or freezer, but then you cannot compare the across time (i.e. if time 0 is coded as only fridge, then you cannot compare to the freezer storage at other pts). Coding the time zero temp as something other than fridge or freezer leads to this issue for all comparisons. 
+- We could create a single "temp/time" variable, and compare across individual groups. But, then we aren't specifically measuring the effect of each of time and temp, and we're not interested in the comparison of t2-fridge vs t7-freezer.
+- calculate the CHANGE from 0 to each time point/temp and run t-tests, but this is pretty similar to just running t-tests on each sample pair individually, when then also does not account for multiple stats comparisons, so would that introduce false independence and thus statistical inflation??
 
 
 
@@ -68,26 +75,6 @@ check the lm assumptions of the
 
 
 
-### lm
-
-Use this lm to determine whether the effects of temperature, time, or their interaction are statistically significant.
-
-```{r}
-lm_interaction <- lm(data = dat_push, osmolality_mmol_kg_mean ~ Temperature*Days)
-
-# is the interaction helpful?
-lm_single <- lm(data = dat_push, osmolality_mmol_kg_mean ~ Temperature + Days)
-
-# compare
-anova(lm_interaction, lm_single)
-anova(lm_interaction)
-anova(lm_single)
-```
-
-The temperature that plasma is stored at and the number of days it is stored *does* affect osmolality values, but the interaction is not significant.
-
-
-
 ### data wrangling
 
 ```{r}
@@ -95,13 +82,13 @@ remove <- dat_push %>%
   dplyr::filter(Days != "0")
 to_fix <- dat_push %>% 
   dplyr::filter(Days == "0")
-fridge <- to_fix %>% 
-  mutate(Temperature = "Refridgerator")
-freezer <- to_fix %>% 
+fridge_fix <- to_fix %>% 
+  mutate(Temperature = "Refrigerator")
+freezer_fix <- to_fix %>% 
   mutate(Temperature = "Freezer")
 together <- remove %>% 
-  rbind(fridge) %>% 
-  rbind(freezer)
+  rbind(fridge_fix) %>% 
+  rbind(freezer_fix)
 ```
 
 
@@ -109,41 +96,68 @@ together <- remove %>%
 
 ### lm
 
-Now, run a different lm version, with temperature and days as a single variable, to make the pairwise comparison easier. **I could not figure out how to run this otherwise**
+Use this lm to determine whether the effects of temperature, time, or their interaction are statistically significant.
 
 ```{r}
-lm_arranged <- lm(data = together, osmolality_mmol_kg_mean ~ Temperature*Days)
+lm_interaction <- lm(data = together, osmolality_mmol_kg_mean ~ Temperature*Days)
+
+summary(lm_interaction)
+
+anova <- data.frame(anova(lm_interaction))
+anova
 ```
 
 
+The temperature that plasma is stored at and the number of days it is stored *does* affect osmolality values, but the interaction is not significant.
+
+Even though the interaction is not statistically significant, this is still the model structure we want to use, because we want to know whether the difference between fridge vs freezer samples changes over time. 
+
+
+**stats stmts for paper**: Plasma osmolality significantly differed over time (F(4, 40) = 22.38, p < 0.0001), and between being stored in the refrigerator versus freezer (F(1,40) = 8.05, p = 0.007), but there was no interaction of time and storage temperature (F(4,40) = 2.03, p = 0.1). 
+
+
+
+
+### check assumptions
+
+Check linearity, normality, and equal error variance.
+
+```{r}
+plot(lm_interaction)
+```
+
+
+These are the most perfect LNE plots I've ever seen!
 
 
 ### emmeans
 
-Now, get the marginal means and pairwise differences between each sample group:
+Now, get the marginal means, confidence intervals of those means, and pairwise differences between each sample group:
 
 ```{r}
-emmeans <- data.frame(emmeans(lm_arranged, pairwise ~ Temperature | Days)$emmean) 
+emmeans <- data.frame(emmeans(lm_interaction, pairwise ~ Temperature | Days)$emmean) 
+emmeans
 
-temp_diffs <- data.frame(emmeans(lm_arranged, pairwise ~ Temperature | Days)$contrasts)
+temp_diffs <- data.frame(emmeans(lm_interaction, pairwise ~ Temperature | Days)$contrasts)
 temp_diffs
 
-time_diffs <- data.frame(emmeans(lm_arranged, pairwise ~ Days | Temperature)$contrasts) %>% 
+time_diffs <- data.frame(emmeans(lm_interaction, 
+                                 pairwise ~ Days | Temperature)$contrasts) %>% 
   dplyr::filter(substr(contrast, 1, 1) == "0")
 time_diffs
 ```
 
 
-SE **does** typically vary... interesting...
+Side note... SE is usually more variable. After some investigations, it seems like getting the same SE for each comparison is pretty normal given that the SD and sample size is similar/same across our samples. 
 
 
-prep emmeans results for plotting...
+prep emmeans results for plotting... Now that we have the stats, I want to go back to only displaying one set of the t0 sample size, without a fridge/freezer label
 
 ```{r}
 to_label <- emmeans %>% 
   dplyr::filter(Days == "0") %>% 
   # pick one to keep, they are the same
-  dplyr::filter(Temperature == "Refridgerator") %>% 
+  dplyr::filter(Temperature == "Refrigerator") %>% 
   mutate(Temperature = "None")
 
 all_good <- emmeans %>% 
@@ -153,23 +167,47 @@ all_good <- emmeans %>%
 
 
 
-## Variation Among Samples of the Same Group
+### pretty stats table
 
-Quantify the difference in spread for samples of the same "treatment" group.
+Get marginal mean pairwise comparison ready to be a nice results data table!
 
 ```{r}
+time_diffs_pre <- time_diffs %>% 
+  rename(Constant = Temperature,
+         Comparison = contrast) %>% 
+  mutate(Constant = paste("Stored in", Constant, sep = " "),
+         Comparison = paste("Day", Comparison, sep = " "))
 
+temp_diffs_pre <- temp_diffs %>% 
+  rename(Constant = Days,
+         Comparison = contrast) %>% 
+  mutate(Constant = paste("Day", Constant, sep = " "),
+         Comparison = "Stored in Refrigerator versus Freezer")
+
+all_diffs <- time_diffs_pre %>% 
+  rbind(temp_diffs_pre) %>% 
+  mutate(estimate = round(estimate, 2),
+         SE = round(SE, 2),
+         t_df = paste(t.ratio = round(t.ratio, 2), "(", df, ")"),
+         p.value = round(p.value, 4)) %>% 
+  dplyr::select(Constant, Comparison, estimate, SE, t_df, p_value = p.value)
+
+all_diffs
+write_csv(all_diffs, "./results/marginal_means.csv")
 ```
 
 
 
 
-## Change
 
-**I actually think this will be redundant :(**
-What was the change for each time point/ temperature, and was it statistically different from zero?
 
-Can I put t-test results into the same df as the change values I calculate?!
+
+
+## Variation Among Samples of the Same Group
+
+would be cool to Quantify the difference in spread for samples of the same "treatment" group. It looks like variability increases over time. But, the internet says that stats to test this are very shaky, so idk if it's worthwhile to add this. 
+
+
 
 
 
@@ -195,6 +233,8 @@ theme_set(theme_classic() +
                            legend.text.align = 0,
                            legend.position = "bottom"
                            ))
+
+my_colors <- brewer.pal(8, "Dark2")[c(1,2,3)]
 ```
 
 
@@ -231,16 +271,36 @@ ggplot() +
                  color = Temperature),
              position = position_dodge(width = 0.8),
                 width = .2) +
-  #annotate(geom = "text", x = 2, y = 19, label = "A", size = 3) +
-  scale_color_manual(name = NULL, values = c("green", "blue", "gray")) +
-  scale_shape_manual(name = NULL, values = c(15, 16, 17)) +
+  
+  # stats between storage methods
+  annotate(geom = "text", x = 4, y = 360, label = "*", size = 6) + 
+  annotate(geom = "text", x = 5, y = 360, label = "**", size = 6) + 
+  
+  # stats over time for REFRIDGE
+  annotate(geom = "text", x = 3.8, y = 337, label = "#", size = 2) + 
+  annotate(geom = "text", x = 4.8, y = 342, label = "###", size = 2) + 
+  
+  # stats over time for FREEZER
+  annotate(geom = "text", x = 4.2, y = 353, label = "###", size = 2) + 
+  annotate(geom = "text", x = 5.2, y = 358, label = "###", size = 2) + 
+  
+  scale_color_manual(name = "Storage", values = my_colors) +
+  scale_shape_manual(name = "Storage", values = c(19, 15, 17)) +
   scale_y_continuous(limits = c(310, 360), 
-                     name = bquote('Osmolality (mmol '*kg^-1*')')) -> osml_values_plot
+                     name = bquote('Plasma Osmolality (mmol '*kg^-1*')')) -> osml_values_plot
 osml_values_plot
 ```
 
 
-^ I should put none first in the legend
+Figure legend:
+Plasma osmolality values change based on how long blood plasma samples are stored and whether they are stored in the refridgerator versus freezer. Large points represent marginal means ± 95% confidence intervals. Small points represent samples. * denotes significant differences between refrigerator versus freezer storage at a given time point. # denotes significant differences between time points for a given storage temperature. For both symbols, * p < 0.05, ** p < 0.01, *** p < 0.001.
+
+
+
+
+
+
+
 
 ## Export
 
@@ -259,7 +319,6 @@ ggsave(filename = "storage_effects.pdf",
 
 
 
-## Change 
 
 
 
