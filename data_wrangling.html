@@ -1254,7 +1254,7 @@ outside the distribution of samples overall, it should be removed.</p>
 osmometer decided otherwise</em> - V = 72-86 hours - W = 1 week - M = 1
 month</p>
 <div class="sourceCode" id="cb65"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb65-1"><a href="#cb65-1" tabindex="-1"></a>osml_means_pretty <span class="ot">&lt;-</span> osml_means_labeled <span class="sc">%&gt;%</span> </span>
-<span id="cb65-2"><a href="#cb65-2" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">Temperature =</span> <span class="fu">case_when</span>(<span class="fu">substr</span>(storage, <span class="dv">1</span>, <span class="dv">1</span>) <span class="sc">==</span> <span class="st">&quot;R&quot;</span> <span class="sc">~</span> <span class="st">&quot;Refridgerator&quot;</span>,</span>
+<span id="cb65-2"><a href="#cb65-2" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">Temperature =</span> <span class="fu">case_when</span>(<span class="fu">substr</span>(storage, <span class="dv">1</span>, <span class="dv">1</span>) <span class="sc">==</span> <span class="st">&quot;R&quot;</span> <span class="sc">~</span> <span class="st">&quot;Refrigerator&quot;</span>,</span>
 <span id="cb65-3"><a href="#cb65-3" tabindex="-1"></a>                                 <span class="fu">substr</span>(storage, <span class="dv">1</span>, <span class="dv">1</span>) <span class="sc">==</span> <span class="st">&quot;F&quot;</span> <span class="sc">~</span> <span class="st">&quot;Freezer&quot;</span>,</span>
 <span id="cb65-4"><a href="#cb65-4" tabindex="-1"></a>                                 storage <span class="sc">==</span> <span class="st">&quot;0&quot;</span> <span class="sc">~</span> <span class="st">&quot;None&quot;</span>),</span>
 <span id="cb65-5"><a href="#cb65-5" tabindex="-1"></a>         <span class="at">Days =</span> <span class="fu">case_when</span>(storage <span class="sc">==</span> <span class="st">&quot;0&quot;</span> <span class="sc">~</span> <span class="st">&quot;0&quot;</span>,</span>
@@ -1263,19 +1263,19 @@ month</p>
 <span id="cb65-8"><a href="#cb65-8" tabindex="-1"></a>                          <span class="fu">substr</span>(storage, <span class="dv">2</span>, <span class="dv">2</span>) <span class="sc">==</span> <span class="st">&quot;W&quot;</span> <span class="sc">~</span> <span class="st">&quot;7&quot;</span>,</span>
 <span id="cb65-9"><a href="#cb65-9" tabindex="-1"></a>                          <span class="fu">substr</span>(storage, <span class="dv">2</span>, <span class="dv">2</span>) <span class="sc">==</span> <span class="st">&quot;M&quot;</span> <span class="sc">~</span> <span class="st">&quot;28-29&quot;</span>)) <span class="sc">%&gt;%</span> </span>
 <span id="cb65-10"><a href="#cb65-10" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">Temperature =</span> <span class="fu">factor</span>(Temperature,</span>
-<span id="cb65-11"><a href="#cb65-11" tabindex="-1"></a>                              <span class="at">levels =</span> <span class="fu">c</span>(<span class="st">&quot;Refridgerator&quot;</span>, <span class="st">&quot;Freezer&quot;</span>, <span class="st">&quot;None&quot;</span>)),</span>
+<span id="cb65-11"><a href="#cb65-11" tabindex="-1"></a>                              <span class="at">levels =</span> <span class="fu">c</span>(<span class="st">&quot;None&quot;</span>, <span class="st">&quot;Refrigerator&quot;</span>, <span class="st">&quot;Freezer&quot;</span>)),</span>
 <span id="cb65-12"><a href="#cb65-12" tabindex="-1"></a>         <span class="at">Days =</span> <span class="fu">factor</span>(Days,</span>
 <span id="cb65-13"><a href="#cb65-13" tabindex="-1"></a>                       <span class="at">levels =</span> <span class="fu">c</span>(<span class="st">&quot;0&quot;</span>, <span class="st">&quot;2&quot;</span>, <span class="st">&quot;3-4&quot;</span>, <span class="st">&quot;7&quot;</span>, <span class="st">&quot;28-29&quot;</span>)</span>
 <span id="cb65-14"><a href="#cb65-14" tabindex="-1"></a>                       ))</span>
 <span id="cb65-15"><a href="#cb65-15" tabindex="-1"></a><span class="fu">summary</span>(osml_means_pretty)</span></code></pre></div>
-<pre><code>##     tube       storage   sample_no osmolality_mmol_kg_mean        Temperature
-##  push :45   FM     :10   1:16      Min.   :313.3           Refridgerator:39  
-##  screw:39   FT     :10   2:17      1st Qu.:323.7           Freezer      :40  
-##             FV     :10   3:17      Median :331.7           None         : 5  
-##             FW     :10   4:17      Mean   :335.1                             
-##             RT     :10   5:17      3rd Qu.:338.3                             
-##             RV     :10             Max.   :386.7                             
-##             (Other):24                                                       
+<pre><code>##     tube       storage   sample_no osmolality_mmol_kg_mean       Temperature
+##  push :45   FM     :10   1:16      Min.   :313.3           None        : 5  
+##  screw:39   FT     :10   2:17      1st Qu.:323.7           Refrigerator:39  
+##             FV     :10   3:17      Median :331.7           Freezer     :40  
+##             FW     :10   4:17      Mean   :335.1                            
+##             RT     :10   5:17      3rd Qu.:338.3                            
+##             RV     :10             Max.   :386.7                            
+##             (Other):24                                                      
 ##     Days   
 ##  0    : 5  
 ##  2    :20  
