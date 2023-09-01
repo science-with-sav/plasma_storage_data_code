@@ -99,13 +99,16 @@ together <- remove %>%
 Use this lm to determine whether the effects of temperature, time, or their interaction are statistically significant.
 
 ```{r}
-lm_interaction <- lm(data = together, osmolality_mmol_kg_mean ~ Temperature*Days)
+lm_interaction <- lm(data = together, 
+                     osmolality_mmol_kg_mean ~ Temperature*Days)
 
 summary(lm_interaction)
 
-anova <- data.frame(anova(lm_interaction))
+anova <- data.frame(car::Anova(lm_interaction, type = 2, ddf = "Kenward-Roger"
+                               ))
 anova
 ```
+
 
 
 The temperature that plasma is stored at and the number of days it is stored *does* affect osmolality values, but the interaction is not significant.
