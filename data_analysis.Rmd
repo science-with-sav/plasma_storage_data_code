@@ -196,7 +196,8 @@ all_diffs <- time_diffs_pre %>%
   dplyr::select(Constant, Comparison, estimate, SE, t_df, p_value = p.value)
 
 all_diffs
-write_csv(all_diffs, "./results/marginal_means.csv")
+
+#write_csv(all_diffs, "./results/marginal_means.csv")
 ```
 
 
@@ -308,14 +309,14 @@ Plasma osmolality values change based on how long blood plasma samples are store
 ## Export
 
 ```{r}
-ggsave(filename = "storage_effects.pdf",
-       plot = osml_values_plot,
-       path = "./results",
-       device = "pdf",
-       dpi = 600,
-       units = "mm",
-       width = 160, height = 100
-       )
+#ggsave(filename = "storage_effects.pdf",
+ #      plot = osml_values_plot,
+  #     path = "./results",
+   #    device = "pdf",
+    #   dpi = 600,
+     #  units = "mm",
+      # width = 160, height = 100
+       #)
 ```
 
 
