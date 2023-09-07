@@ -145,8 +145,8 @@ temp_diffs <- data.frame(emmeans(lm_interaction, pairwise ~ Temperature | Days)$
 temp_diffs
 
 time_diffs <- data.frame(emmeans(lm_interaction, 
-                                 pairwise ~ Days | Temperature)$contrasts) %>% 
-  dplyr::filter(substr(contrast, 1, 1) == "0")
+                                 pairwise ~ Days | Temperature)$contrasts)# %>% 
+  #dplyr::filter(substr(contrast, 1, 1) == "0")
 time_diffs
 ```
 
