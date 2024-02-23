@@ -73,6 +73,42 @@ Alternatives that I thought of, with their downsides:
 # Statistics
 
 
+## Check for RTM
+note: this relies on running code tat creates df below (bad ik)
+
+so... there is a neg corr, which is evidence for RTM, but that's only if we do it at the sample level. samples were completely independent of each other, though, so I don't think that's actually applicable. 
+
+A reviewer suggested that we might have an issue of regression to the mean (RTM). To check this, I will run a regression of change values ~ initial values. 
+
+```{r}
+initial <- fridge_fix %>% 
+  rbind(freezer_fix) %>% 
+  mutate(sample_no = as.numeric(sample_no))
+initial_vs_change <- remove %>% 
+  mutate(sample_num = as.numeric(sample_no),
+         sample_no = round((5/sample_num), 0)) %>% 
+  left_join(initial, by = c('sample_no', 'Temperature')) %>% 
+  mutate(change = osmolality_mmol_kg_mean.x - osmolality_mmol_kg_mean.y)
+summary(initial_vs_change)
+ggplot(initial_vs_change) +
+  aes(
+    x = osmolality_mmol_kg_mean.y, # initial value
+    y = change, # later - initial
+    color = Days.x # when later?
+  ) +
+  geom_point() +
+  geom_smooth(method = "lm", se = F)
+5/1 # 5
+5/2 # 3
+5/3 # 2
+5/4 # 1
+5/5 # 1
+5*4*3*2*1 # how many different orders of numbers 1-5
+```
+
+so, to make sure RTM isn't a meaningful thing, *I could* create all sample_no assignments of the t0 values, and run lm(change ~ temp*time + initial), with the goal being to assess whether change was consistently sig diff from zero for given times/tmts
+
+
 ## Marginal Means
 
 Get the average osmolality for each time point/ temperature, and the pairwise statistical differences. 
@@ -82,6 +118,8 @@ check the assumptions of the model.
 
 
 ### data wrangling
+
+For the model, we need reference values for both fridge and freezer, so we will duplicate the zero time point values. 
 
 ```{r}
 remove <- dat_push %>% 
@@ -147,7 +185,8 @@ Now, get the marginal means, confidence intervals of those means, and pairwise d
 emmeans <- data.frame(emmeans(lm_interaction, pairwise ~ Temperature | Days)$emmean) 
 emmeans
 
-temp_diffs <- data.frame(emmeans(lm_interaction, pairwise ~ Temperature | Days)$contrasts)
+temp_diffs <- data.frame(emmeans(lm_interaction, 
+                                 pairwise ~ Temperature | Days)$contrasts)
 temp_diffs
 
 time_diffs <- data.frame(emmeans(lm_interaction, 
@@ -158,6 +197,13 @@ time_diffs
 
 
 Side note... SE is usually more variable. After some investigations, it seems like getting the same SE for each comparison is pretty normal given that the SD and sample size is similar/same across our samples. 
+
+
+## check RTM of emmeans
+
+```{r}
+
+```
 
 
 prep emmeans results for plotting... Now that we have the stats, I want to go back to only displaying one set of the t0 sample size, without a fridge/freezer label
